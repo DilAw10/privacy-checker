@@ -1,11 +1,4 @@
-<<<<<<< HEAD
 flask
 requests
 beautifulsoup4
-
-=======
-flask
-requests
-beautifulsoup4
-web: gunicorn app:app --bind 0.0.0.0:$PORT
->>>>>>> 11ebcb5 (Initial commit - Privacy Scanner 2026)
+gunicorn
