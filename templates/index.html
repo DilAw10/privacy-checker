@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy & Security Scanner 2026</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>🔒 Privacy & Security Scanner</h1>
+            <p>Check any website for security vulnerabilities and privacy concerns</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="scan-section">
+            <form method="POST" class="scan-form">
+                <div class="input-group">
+                    <input type="url" name="url" placeholder="Enter website URL (e.g., example.com)" required>
+                    <button type="submit" class="btn-scan">Scan Website</button>
+                </div>
+            </form>
+        </div>
+
+        {% if results %}
+            {% if results.get('error') %}
+                <div class="alert alert-error">
+                    <strong>⚠️ Error:</strong> {{ results.error }}
+                </div>
+            {% else %}
+                <div class="results-container">
+                    <!-- Header -->
+                    <div class="result-header">
+                        <h2>{{ results.url }}</h2>
+                        <p class="scan-time">Scanned on {{ '%Y-%m-%d %H:%M' | strftime }}</p>
+                    </div>
+
+                    <!-- HTTPS Status -->
+                    <div class="result-card">
+                        <div class="card-header">
+                            <h3>🌐 Connection Security</h3>
+                        </div>
+                        {% if results.https.error %}
+                            <div class="status-badge error">❌ {{ results.https.error }}</div>
+                        {% else %}
+                            <div class="status-badge {{ 'success' if results.https.uses_https else 'error' }}">
+                                {{ results.https.status }}
+                            </div>
+                            <p>Final URL: <code>{{ results.https.final_url }}</code></p>
+                        {% endif %}
+                    </div>
+
+                    <!-- SSL Certificate -->
+                    <div class="result-card">
+                        <div class="card-header">
+                            <h3>🔐 SSL Certificate</h3>
+                        </div>
+                        {% if results.ssl.error %}
+                            <div class="status-badge error">❌ {{ results.ssl.error }}</div>
+                        {% else %}
+                            <div class="status-badge {{ 'success' if results.ssl.status == 'Valid' else 'warning' }}">
+                                {{ results.ssl.status }}
+                            </div>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <label>Issuer:</label>
+                                    <span>{{ results.ssl.issuer }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Expires:</label>
+                                    <span>{{ results.ssl.expires }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Days Remaining:</label>
+                                    <span class="{{ 'danger' if results.ssl.days_left < 30 else 'safe' }}">{{ results.ssl.days_left }} days</span>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Security Headers -->
+                    <div class="result-card">
+                        <div class="card-header">
+                            <h3>🛡️ Security Headers</h3>
+                        </div>
+                        {% if results.security_headers.error %}
+                            <div class="status-badge error">⚠️ {{ results.security_headers.error }}</div>
+                        {% else %}
+                            <p class="text-muted">HTTP Status: {{ results.security_headers.status_code }}</p>
+                            
+                            {% if results.security_headers.found %}
+                                <div class="header-section">
+                                    <h4>✅ Found Headers</h4>
+                                    <div class="headers-list">
+                                        {% for header, value in results.security_headers.found.items() %}
+                                            <div class="header-item success">
+                                                <strong>{{ header }}:</strong>
+                                                <code>{{ value[:60] }}{% if value|length > 60 %}...{% endif %}</code>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            {% if results.security_headers.missing %}
+                                <div class="header-section">
+                                    <h4>❌ Missing Headers</h4>
+                                    <div class="headers-list">
+                                        {% for header in results.security_headers.missing %}
+                                            <div class="header-item error">{{ header }}</div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+
+                    <!-- Trackers & Analytics -->
+                    <div class="result-card">
+                        <div class="card-header">
+                            <h3>📊 Trackers & Analytics</h3>
+                        </div>
+                        {% if results.trackers.error %}
+                            <div class="status-badge error">⚠️ {{ results.trackers.error }}</div>
+                        {% else %}
+                            <div class="tracker-summary">
+                                <div class="tracker-stat">
+                                    <span class="stat-number">{{ results.trackers.total_trackers }}</span>
+                                    <span class="stat-label">Trackers Found</span>
+                                </div>
+                                <div class="tracker-severity {{ results.trackers.severity|lower }}">
+                                    Severity: <strong>{{ results.trackers.severity }}</strong>
+                                </div>
+                            </div>
+                            
+                            {% if results.trackers.found %}
+                                <div class="trackers-list">
+                                    {% for tracker in results.trackers.found %}
+                                        <div class="tracker-badge">{{ tracker }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-success">✅ No known trackers detected</p>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+
+                    <!-- Privacy Policies -->
+                    <div class="result-card">
+                        <div class="card-header">
+                            <h3>📋 Privacy & Legal</h3>
+                        </div>
+                        {% if results.privacy_policies.error %}
+                            <div class="status-badge error">⚠️ {{ results.privacy_policies.error }}</div>
+                        {% else %}
+                            <div class="policies-grid">
+                                {% for policy, found in results.privacy_policies.items() %}
+                                    <div class="policy-item {{ 'found' if found else 'missing' }}">
+                                        <span class="policy-icon">{{ '✅' if found else '❌' }}</span>
+                                        <span class="policy-name">{{ policy }}</span>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Score Summary -->
+                    <div class="score-summary">
+                        <div class="score-section">
+                            <h3>📈 Overall Assessment</h3>
+                            <p>Scan completed successfully. Review the results above to understand the website's security and privacy posture.</p>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    <footer>
+        <p>Privacy & Security Scanner 2026 | Always verify results independently</p>
+    </footer>
+</body>
+</html>
