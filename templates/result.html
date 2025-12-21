@@ -71,8 +71,28 @@
                         <div class="result-card">
                             <div class="card-header"><h3>🌐 Connection & Rendering</h3></div>
                             <p class="text-muted">Playwright available: <strong>{{ playwright.available if playwright is defined else 'Unknown' }}</strong></p>
+
                             {% if playwright and playwright.info %}
-                                <div class="status-badge warning">{{ playwright.info }}</div>
+                                {# Show a concise status line and provide an actionable message when browsers are missing #}
+                                {% set info_lower = playwright.info.lower() %}
+
+                                {% if 'playwright install' in info_lower or 'please run the following command' in info_lower or "executable doesn't exist" in info_lower or 'install+retry' in info_lower %}
+                                    <div class="status-badge warning">Playwright reported an issue</div>
+
+                                    <div class="alert alert-warning" style="margin-top:12px;">
+                                        <strong>Action required:</strong>
+                                        Playwright browser binaries are missing on the server. To fix this, run the command below on the server or add it to your build step (recommended for Render):
+                                        <pre class="code-block">python -m playwright install --with-deps</pre>
+                                        After installing, restart or redeploy the service so screenshots can be produced.
+                                    </div>
+
+                                    <details style="margin-top:8px;">
+                                        <summary style="cursor:pointer">View full Playwright output</summary>
+                                        <pre class="code-block" style="white-space:pre-wrap;">{{ playwright.info }}</pre>
+                                    </details>
+                                {% else %}
+                                    <div class="status-badge warning">{{ playwright.info }}</div>
+                                {% endif %}
                             {% endif %}
 
                             {% if screenshot %}
