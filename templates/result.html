@@ -9,6 +9,8 @@
         .bad { color: #c62828; }
         .findings { margin-top: 1rem; }
         .preview { margin-top: 1rem; background:#f6f6f6; padding:1rem; border-radius:6px }
+        .code-block { background:#0d0d0d; color:#e6e6e6; padding:12px; border-radius:6px; overflow:auto; max-height:300px; }
+        .btn-scan { display:inline-block; padding:8px 12px; margin-right:8px; background:#2b6cb0; color:#fff; border-radius:6px; text-decoration:none; }
     </style>
 </head>
 <body>
@@ -47,10 +49,42 @@
                     <h4>Rendered screenshot</h4>
                     <img src="data:image/png;base64,{{ screenshot }}" alt="Rendered screenshot" style="max-width:100%; border-radius:6px; border:1px solid #ddd;"/>
                 {% endif %}
+
+                {% if sanitized_html %}
+                    <div style="margin-top:12px;">
+                        <button id="toggle-raw" class="btn-scan">Show raw HTML</button>
+                        {% if sanitized_html_b64 %}
+                            <a class="btn-scan" href="data:text/html;base64,{{ sanitized_html_b64 }}" download="{{ url.replace('://','_') }}.html">Download sanitized HTML</a>
+                        {% endif %}
+
+                        <div id="raw-html" style="display:none; margin-top:12px;">
+                            <pre class="code-block">{{ sanitized_html | e }}</pre>
+                        </div>
+                    </div>
+                {% endif %}
             </div>
         </div>
     {% endif %}
 
     <p><a href="/">Check another site</a></p>
+<script>
+    document.addEventListener('DOMContentLoaded', function(){
+        var btn = document.getElementById('toggle-raw');
+        if (btn){
+            btn.addEventListener('click', function(e){
+                e.preventDefault();
+                var block = document.getElementById('raw-html');
+                if (!block) return;
+                if (block.style.display === 'none'){
+                    block.style.display = 'block';
+                    btn.textContent = 'Hide raw HTML';
+                } else {
+                    block.style.display = 'none';
+                    btn.textContent = 'Show raw HTML';
+                }
+            });
+        }
+    });
+</script>
 </body>
 </html>

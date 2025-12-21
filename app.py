@@ -132,6 +132,29 @@ def compute_security_score(missing_headers_count: int, trackers_count: int, has_
     return score
 
 
+def sanitize_html(html: str) -> str:
+    """Sanitize HTML by removing script tags and event handler attributes.
+    Uses BeautifulSoup to strip potentially dangerous parts while preserving structure.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Remove all script tags
+    for script in soup.find_all("script"):
+        script.decompose()
+
+    # Remove attributes that start with on* (onclick, onload, etc.) and javascript: URLs
+    for tag in soup.find_all(True):
+        attrs = dict(tag.attrs)
+        for attr, val in attrs.items():
+            if attr.lower().startswith("on"):
+                del tag.attrs[attr]
+                continue
+            if attr.lower() in ("href", "src") and isinstance(val, str) and val.strip().lower().startswith("javascript:"):
+                del tag.attrs[attr]
+
+    return str(soup)
+
+
 def run_full_scan(url: str, use_js: bool = False) -> Dict:
     """Perform HTTP fetch + security & privacy analysis, return structured results."""
     try:
@@ -143,6 +166,7 @@ def run_full_scan(url: str, use_js: bool = False) -> Dict:
     # If JS rendering requested and Playwright available, try to use it
     render_info = None
     screenshot_b64 = None
+    raw_html = resp.text
     if use_js:
         rendered = render_with_playwright(url)
         if rendered.get("error"):
@@ -154,6 +178,7 @@ def run_full_scan(url: str, use_js: bool = False) -> Dict:
             # Use rendered text for analysis
             text_for_analysis = rendered.get("text") or ""
             screenshot_b64 = rendered.get("screenshot")
+            raw_html = text_for_analysis
             soup = BeautifulSoup(text_for_analysis, "html.parser")
     else:
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -176,11 +201,16 @@ def run_full_scan(url: str, use_js: bool = False) -> Dict:
     else:
         preview = get_preview(url, use_js=False, max_chars=800)
 
+    sanitized_html = sanitize_html(raw_html) if raw_html else ""
+
     result = {
         "url": resp.url,
         "security_score": security_score,
         "findings": findings,
         "preview": preview,
+        "raw_html": raw_html,
+        "sanitized_html": sanitized_html,
+        "sanitized_html_b64": base64.b64encode(sanitized_html.encode("utf-8")).decode("ascii") if sanitized_html else None,
         "playwright": {
             "available": PLAYWRIGHT_AVAILABLE,
             "info": render_info,
@@ -197,9 +227,14 @@ def run_full_scan(url: str, use_js: bool = False) -> Dict:
 def index():
     if request.method == "POST":
         url = request.form.get("url")
-        render_js = bool(request.form.get("render_js"))
+        # If user explicitly sets the checkbox, use it; otherwise default to Playwright availability
+        if request.form.get("render_js") is not None:
+            render_js = bool(request.form.get("render_js"))
+        else:
+            render_js = PLAYWRIGHT_AVAILABLE
+
         if not url:
-            return render_template("index.html", error="Please enter a URL to scan.")
+            return render_template("index.html", error="Please enter a URL to scan.", playwright=PLAYWRIGHT_AVAILABLE)
 
         result = run_full_scan(url, use_js=render_js)
 
@@ -212,11 +247,14 @@ def index():
             security_score=result["security_score"],
             findings=result["findings"],
             preview=result["preview"],
+            sanitized_html=result.get("sanitized_html"),
+            sanitized_html_b64=result.get("sanitized_html_b64"),
             playwright=result.get("playwright"),
             screenshot=result.get("screenshot"),
         )
 
-    return render_template("index.html")
+    # On GET, tell the template whether Playwright is available so the checkbox can be default-checked
+    return render_template("index.html", playwright=PLAYWRIGHT_AVAILABLE)
 
 
 @app.route('/health')
