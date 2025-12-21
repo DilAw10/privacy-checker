@@ -19,12 +19,23 @@ class PlaywrightTests(unittest.TestCase):
         self.assertIn('screenshot', result)
 
     @patch('app.render_with_playwright')
-    def test_run_full_scan_with_playwright_error(self, mock_render):
+    @patch('app.requests.get')
+    def test_run_full_scan_with_playwright_error(self, mock_get, mock_render):
+        # Simulate Playwright error and a normal HTTP response body
         mock_render.return_value = {"text": None, "screenshot": None, "error": 'Playwright error: failed'}
+        class Resp:
+            url = 'https://example.com'
+            text = '<html><body>Fallback page text</body></html>'
+            headers = {}
+            def raise_for_status(self):
+                return None
+        mock_get.return_value = Resp()
+
         result = run_full_scan('https://example.com', use_js=True)
-        # should still return analysis using requests fallback
+        # should still return analysis using requests fallback and include a text preview
         self.assertIn('security_score', result)
         self.assertIsNone(result.get('screenshot'))
+        self.assertIn('Fallback page text', result.get('preview', ''))
 
 if __name__ == '__main__':
     unittest.main()
