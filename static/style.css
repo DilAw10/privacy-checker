@@ -506,3 +506,17 @@ footer {
         font-size: 2rem;
     }
 }
+
+/* Preview styling */
+.result-preview {
+    background: #0f1724;
+    color: #e6eef9;
+    padding: 18px;
+    border-radius: 12px;
+    max-height: 300px;
+    overflow: auto;
+    white-space: pre-wrap;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    border: 1px solid rgba(255,255,255,0.04);
+}

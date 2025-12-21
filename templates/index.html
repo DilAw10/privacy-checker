@@ -21,6 +21,10 @@
                     <input type="url" name="url" placeholder="Enter website URL (e.g., example.com)" required>
                     <button type="submit" class="btn-scan">Scan Website</button>
                 </div>
+                <div style="margin-top:8px; display:flex; align-items:center; gap:8px;">
+                    <label style="font-size:0.9rem;"><input type="checkbox" name="render_js"> Render JS (slower)</label>
+                    <span class="text-muted" style="font-size:0.85rem;">Enable only if the site relies heavily on client-side rendering</span>
+                </div>
             </form>
         </div>
 
@@ -34,7 +38,7 @@
                     <!-- Header -->
                     <div class="result-header">
                         <h2>{{ results.url }}</h2>
-                        <p class="scan-time">Scanned on {{ '%Y-%m-%d %H:%M' | strftime }}</p>
+                        <p class="scan-time">Scanned on {{ results.scan_time }}</p>
                     </div>
 
                     <!-- HTTPS Status -->
@@ -163,6 +167,18 @@
                                     </div>
                                 {% endfor %}
                             </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Preview -->
+                    <div class="result-card">
+                        <div class="card-header">
+                            <h3>📄 Page Preview</h3>
+                        </div>
+                        {% if results.preview %}
+                            <pre class="result-preview">{{ results.preview }}</pre>
+                        {% else %}
+                            <p class="text-muted">No preview available for this site.</p>
                         {% endif %}
                     </div>
 
