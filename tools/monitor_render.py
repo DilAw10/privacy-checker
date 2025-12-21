@@ -30,11 +30,22 @@ if __name__ == '__main__':
             try:
                 s = requests.post(SERVICE_URL + '/', data={'url': 'https://example.com'}, timeout=20)
                 print('Scan returned status', s.status_code)
+                html = s.text or ''
+                # Check for rendered screenshot
+                if 'Rendered screenshot' in html or 'data:image/png;base64,' in html:
+                    print('Rendered screenshot detected in scan output')
+                    print('Service is fully ready — stopping monitor')
+                    break
+                else:
+                    print('No rendered screenshot detected yet. Will continue polling.')
             except Exception as e:
                 print('Scan request error:', e)
 
-            print('Service is responding — stopping monitor')
-            break
+            # keep polling until max polls
+        else:
+            time.sleep(POLL_INTERVAL)
+    else:
+        print('Service did not report healthy status in time')
         else:
             time.sleep(POLL_INTERVAL)
     else:
