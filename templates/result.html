@@ -2,11 +2,46 @@
 <html>
 <head>
     <title>Privacy Compliance Checker</title>
+    <style>
+        .score { font-size: 48px; font-weight: bold; }
+        .good { color: #1a7f37; }
+        .warn { color: #ff8c00; }
+        .bad { color: #c62828; }
+        .findings { margin-top: 1rem; }
+        .preview { margin-top: 1rem; background:#f6f6f6; padding:1rem; border-radius:6px }
+    </style>
 </head>
 <body>
     <h1>Results for {{ url }}</h1>
-    <p><strong>HTML Preview:</strong></p>
-    <pre>{{ preview }}</pre>
-    <a href="/">Check another site</a>
+
+    {% if error %}
+        <p style="color: red;"><strong>Error:</strong> {{ error }}</p>
+    {% else %}
+        <div>
+            <p>Security Score:</p>
+            {% set cls = 'good' if security_score >= 80 else ('warn' if security_score >= 50 else 'bad') %}
+            <div class="score {{ cls }}">{{ security_score }} / 100</div>
+
+            <div class="findings">
+                <h3>Findings</h3>
+                {% if findings %}
+                    <ul>
+                        {% for f in findings %}
+                            <li>{{ f }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No issues detected.</p>
+                {% endif %}
+            </div>
+
+            <div class="preview">
+                <h4>Page text preview</h4>
+                <pre>{{ preview }}</pre>
+            </div>
+        </div>
+    {% endif %}
+
+    <p><a href="/">Check another site</a></p>
 </body>
 </html>
