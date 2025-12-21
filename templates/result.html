@@ -38,6 +38,15 @@
             <div class="preview">
                 <h4>Page text preview</h4>
                 <pre>{{ preview }}</pre>
+
+                {% if playwright %}
+                    <p class="text-muted">Playwright available on server: {{ playwright.available }}{% if playwright.info %} — {{ playwright.info }}{% endif %}</p>
+                {% endif %}
+
+                {% if screenshot %}
+                    <h4>Rendered screenshot</h4>
+                    <img src="data:image/png;base64,{{ screenshot }}" alt="Rendered screenshot" style="max-width:100%; border-radius:6px; border:1px solid #ddd;"/>
+                {% endif %}
             </div>
         </div>
     {% endif %}

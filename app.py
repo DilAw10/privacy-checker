@@ -1,8 +1,16 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
-from typing import List, Dict
+from typing import List, Dict, Optional
+import base64
+
+# Try to import Playwright; gracefully degrade if not available
+try:
+    from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+    PLAYWRIGHT_AVAILABLE = True
+except Exception:
+    PLAYWRIGHT_AVAILABLE = False
 
 app = Flask(__name__)
 
@@ -21,6 +29,34 @@ def get_preview(url: str, use_js: bool = False, max_chars: int = 500) -> str:
     snippet = text[:max_chars]
     preview_cache[url] = snippet
     return snippet
+
+
+def render_with_playwright(url: str, timeout: int = 10) -> Dict[str, Optional[str]]:
+    """Render the page with Playwright and return text preview and a PNG screenshot (base64).
+    Returns a dict with keys: 'text', 'screenshot' (base64), 'error' (str or None)
+    """
+    if not PLAYWRIGHT_AVAILABLE:
+        return {"text": None, "screenshot": None, "error": "Playwright not available"}
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True, args=["--no-sandbox"])  # Render-friendly
+            page = browser.new_page()
+            page.goto(url, timeout=timeout * 1000, wait_until="networkidle")
+
+            # Get page content text and a screenshot
+            body_text = page.inner_text("body") if page.locator('body').count() else page.content()
+            screenshot_bytes = page.screenshot(type="png")
+
+            browser.close()
+
+            screenshot_b64 = base64.b64encode(screenshot_bytes).decode("ascii") if screenshot_bytes else None
+            return {"text": body_text, "screenshot": screenshot_b64, "error": None}
+
+    except PlaywrightTimeoutError as e:
+        return {"text": None, "screenshot": None, "error": f"Playwright timeout: {e}"}
+    except Exception as e:
+        return {"text": None, "screenshot": None, "error": f"Playwright error: {e}"}
 
 
 def check_security_headers(response_or_headers) -> List[str]:
@@ -96,15 +132,31 @@ def compute_security_score(missing_headers_count: int, trackers_count: int, has_
     return score
 
 
-def run_full_scan(url: str) -> Dict:
+def run_full_scan(url: str, use_js: bool = False) -> Dict:
     """Perform HTTP fetch + security & privacy analysis, return structured results."""
     try:
-        resp = requests.get(url, timeout=7)
+        resp = requests.get(url, timeout=10)
         resp.raise_for_status()
     except Exception as e:
         return {"url": url, "error": str(e)}
 
-    soup = BeautifulSoup(resp.text, "html.parser")
+    # If JS rendering requested and Playwright available, try to use it
+    render_info = None
+    screenshot_b64 = None
+    if use_js:
+        rendered = render_with_playwright(url)
+        if rendered.get("error"):
+            # Playwright failed -> fall back to standard response HTML
+            render_info = rendered["error"]
+            soup = BeautifulSoup(resp.text, "html.parser")
+        else:
+            render_info = "Rendered via Playwright"
+            # Use rendered text for analysis
+            text_for_analysis = rendered.get("text") or ""
+            screenshot_b64 = rendered.get("screenshot")
+            soup = BeautifulSoup(text_for_analysis, "html.parser")
+    else:
+        soup = BeautifulSoup(resp.text, "html.parser")
 
     header_findings = check_security_headers(resp)
     tracker_findings = detect_trackers(soup)
@@ -118,24 +170,38 @@ def run_full_scan(url: str) -> Dict:
 
     security_score = compute_security_score(missing_headers_count, trackers_count, has_https)
 
-    preview = get_preview(url, use_js=False, max_chars=800)
+    # Prefer Playwright text preview if available
+    if use_js and render_info == "Rendered via Playwright":
+        preview = (soup.get_text()[:800]) if soup else ""
+    else:
+        preview = get_preview(url, use_js=False, max_chars=800)
 
-    return {
+    result = {
         "url": resp.url,
         "security_score": security_score,
         "findings": findings,
         "preview": preview,
+        "playwright": {
+            "available": PLAYWRIGHT_AVAILABLE,
+            "info": render_info,
+        },
     }
+
+    if screenshot_b64:
+        result["screenshot"] = screenshot_b64
+
+    return result
 
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
         url = request.form.get("url")
+        render_js = bool(request.form.get("render_js"))
         if not url:
             return render_template("index.html", error="Please enter a URL to scan.")
 
-        result = run_full_scan(url)
+        result = run_full_scan(url, use_js=render_js)
 
         if "error" in result:
             return render_template("result.html", url=url, error=result["error"]) 
@@ -146,9 +212,16 @@ def index():
             security_score=result["security_score"],
             findings=result["findings"],
             preview=result["preview"],
+            playwright=result.get("playwright"),
+            screenshot=result.get("screenshot"),
         )
 
     return render_template("index.html")
+
+
+@app.route('/health')
+def health():
+    return jsonify({"ok": True, "playwright": PLAYWRIGHT_AVAILABLE})
 
 
 if __name__ == "__main__":
