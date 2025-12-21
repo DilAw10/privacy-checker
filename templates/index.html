@@ -22,8 +22,8 @@
                     <button type="submit" class="btn-scan">Scan Website</button>
                 </div>
                 <div style="margin-top:8px; display:flex; align-items:center; gap:8px;">
-                    <label style="font-size:0.9rem;"><input type="checkbox" name="render_js"> Render JS (slower)</label>
-                    <span class="text-muted" style="font-size:0.85rem;">Enable only if the site relies heavily on client-side rendering</span>
+                    <label style="font-size:0.9rem;"><input type="checkbox" name="render_js" {% if playwright %}checked{% endif %}> Render JS (slower)</label>
+                    <span class="text-muted" style="font-size:0.85rem;">Enable only if the site relies heavily on client-side rendering (Playwright available: <strong>{% if playwright %}Yes{% else %}No{% endif %}</strong>)</span>
                 </div>
             </form>
         </div>

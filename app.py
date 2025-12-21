@@ -227,9 +227,14 @@ def run_full_scan(url: str, use_js: bool = False) -> Dict:
 def index():
     if request.method == "POST":
         url = request.form.get("url")
-        render_js = bool(request.form.get("render_js"))
+        # If user explicitly sets the checkbox, use it; otherwise default to Playwright availability
+        if request.form.get("render_js") is not None:
+            render_js = bool(request.form.get("render_js"))
+        else:
+            render_js = PLAYWRIGHT_AVAILABLE
+
         if not url:
-            return render_template("index.html", error="Please enter a URL to scan.")
+            return render_template("index.html", error="Please enter a URL to scan.", playwright=PLAYWRIGHT_AVAILABLE)
 
         result = run_full_scan(url, use_js=render_js)
 
@@ -248,7 +253,8 @@ def index():
             screenshot=result.get("screenshot"),
         )
 
-    return render_template("index.html")
+    # On GET, tell the template whether Playwright is available so the checkbox can be default-checked
+    return render_template("index.html", playwright=PLAYWRIGHT_AVAILABLE)
 
 
 @app.route('/health')
