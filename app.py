@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from typing import List, Dict, Optional
 import base64
+import subprocess
 
 # Try to import Playwright; gracefully degrade if not available
 try:
@@ -11,6 +12,15 @@ try:
     PLAYWRIGHT_AVAILABLE = True
 except Exception:
     PLAYWRIGHT_AVAILABLE = False
+
+
+def _attempt_playwright_install() -> bool:
+    """Try to run `playwright install --with-deps`. Returns True if command executed (not necessarily successful)."""
+    try:
+        subprocess.run(["playwright", "install", "--with-deps"], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return True
+    except Exception:
+        return False
 
 app = Flask(__name__)
 
@@ -56,6 +66,27 @@ def render_with_playwright(url: str, timeout: int = 10) -> Dict[str, Optional[st
     except PlaywrightTimeoutError as e:
         return {"text": None, "screenshot": None, "error": f"Playwright timeout: {e}"}
     except Exception as e:
+        msg = str(e)
+        # Detect missing browsers / install hint and attempt install once, then retry
+        if "playwright install" in msg.lower() or "executable doesn't exist" in msg.lower() or "please run the following command" in msg.lower():
+            installed = _attempt_playwright_install()
+            if installed:
+                # Retry once after attempting install
+                try:
+                    with sync_playwright() as p:
+                        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+                        page = browser.new_page()
+                        page.goto(url, timeout=timeout * 1000, wait_until="networkidle")
+
+                        body_text = page.inner_text("body") if page.locator('body').count() else page.content()
+                        screenshot_bytes = page.screenshot(type="png")
+
+                        browser.close()
+
+                        screenshot_b64 = base64.b64encode(screenshot_bytes).decode("ascii") if screenshot_bytes else None
+                        return {"text": body_text, "screenshot": screenshot_b64, "error": None}
+                except Exception as e2:
+                    return {"text": None, "screenshot": None, "error": f"Playwright install+retry failed: {e2}"}
         return {"text": None, "screenshot": None, "error": f"Playwright error: {e}"}
 
 
