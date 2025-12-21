@@ -195,14 +195,14 @@ def run_full_scan(url: str, use_js: bool = False) -> Dict:
 
     security_score = compute_security_score(missing_headers_count, trackers_count, has_https)
 
-    # Prefer Playwright text preview if available
-    if use_js and render_info == "Rendered via Playwright":
-        preview = (soup.get_text()[:800]) if soup else ""
+    # Always produce a concise text preview from the parsed soup when available so the UI stays consistent
+    if soup:
+        preview = soup.get_text()[:800]
     else:
+        # fallback to fetching a preview (best-effort)
         preview = get_preview(url, use_js=False, max_chars=800)
 
     sanitized_html = sanitize_html(raw_html) if raw_html else ""
-
     result = {
         "url": resp.url,
         "security_score": security_score,
