@@ -1,90 +1,129 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Privacy Compliance Checker</title>
-    <style>
-        .score { font-size: 48px; font-weight: bold; }
-        .good { color: #1a7f37; }
-        .warn { color: #ff8c00; }
-        .bad { color: #c62828; }
-        .findings { margin-top: 1rem; }
-        .preview { margin-top: 1rem; background:#f6f6f6; padding:1rem; border-radius:6px }
-        .code-block { background:#0d0d0d; color:#e6e6e6; padding:12px; border-radius:6px; overflow:auto; max-height:300px; }
-        .btn-scan { display:inline-block; padding:8px 12px; margin-right:8px; background:#2b6cb0; color:#fff; border-radius:6px; text-decoration:none; }
-    </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Privacy & Security Scanner — Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Results for {{ url }}</h1>
+    <div class="header">
+        <div class="container">
+            <h1>🔒 Privacy & Security Scanner</h1>
+            <p class="muted">Results for <code style="background:transparent; color:inherit;">{{ url }}</code></p>
+        </div>
+    </div>
 
-    {% if error %}
-        <p style="color: red;"><strong>Error:</strong> {{ error }}</p>
-    {% else %}
-        <div>
-            <p>Security Score:</p>
-            {% set cls = 'good' if security_score >= 80 else ('warn' if security_score >= 50 else 'bad') %}
-            <div class="score {{ cls }}">{{ security_score }} / 100</div>
-
-            <div class="findings">
-                <h3>Findings</h3>
-                {% if findings %}
-                    <ul>
-                        {% for f in findings %}
-                            <li>{{ f }}</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p>No issues detected.</p>
-                {% endif %}
+    <div class="container">
+        {% if error %}
+            <div class="alert alert-error">
+                <strong>⚠️ Error:</strong> {{ error }}
             </div>
+            <p><a class="btn-scan" href="/">Check another site</a></p>
+        {% else %}
+            <div class="results-container">
+                <div class="result-header" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                    <div>
+                        <h2>{{ url }}</h2>
+                        <p class="scan-time">Scanned on {{ (loop_time if loop_time is defined else '') }}</p>
+                    </div>
+                </div>
 
-            <div class="preview">
-                <h4>Page text preview</h4>
-                <pre>{{ preview }}</pre>
+                <div class="grid">
+                    <!-- Left column -->
+                    <div class="col">
+                        <!-- Security Score Card -->
+                        <div class="result-card">
+                            <div class="card-header"><h3>📈 Security Score</h3></div>
+                            {% set cls = 'good' if security_score >= 80 else ('warn' if security_score >= 50 else 'bad') %}
+                            <div style="display:flex; align-items:center; gap:24px;">
+                                <div class="score {{ cls }}">{{ security_score }} / 100</div>
+                                <div>
+                                    <p class="text-muted">A concise heuristic based on headers, trackers, and HTTPS.</p>
+                                </div>
+                            </div>
+                        </div>
 
-                {% if playwright %}
-                    <p class="text-muted">Playwright available on server: {{ playwright.available }}{% if playwright.info %} — {{ playwright.info }}{% endif %}</p>
-                {% endif %}
+                        <!-- Findings Card -->
+                        <div class="result-card">
+                            <div class="card-header"><h3>🛡️ Findings</h3></div>
+                            {% if findings %}
+                                <ul>
+                                    {% for f in findings %}
+                                        <li>{{ f }}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-success">✅ No issues detected.</p>
+                            {% endif %}
+                        </div>
 
-                {% if screenshot %}
-                    <h4>Rendered screenshot</h4>
-                    <img src="data:image/png;base64,{{ screenshot }}" alt="Rendered screenshot" style="max-width:100%; border-radius:6px; border:1px solid #ddd;"/>
-                {% endif %}
-
-                {% if sanitized_html %}
-                    <div style="margin-top:12px;">
-                        <button id="toggle-raw" class="btn-scan">Show raw HTML</button>
-                        {% if sanitized_html_b64 %}
-                            <a class="btn-scan" href="data:text/html;base64,{{ sanitized_html_b64 }}" download="{{ url.replace('://','_') }}.html">Download sanitized HTML</a>
-                        {% endif %}
-
-                        <div id="raw-html" style="display:none; margin-top:12px;">
-                            <pre class="code-block">{{ sanitized_html | e }}</pre>
+                        <!-- Summary Card -->
+                        <div class="result-card">
+                            <div class="card-header"><h3>📊 Summary</h3></div>
+                            <p>Review the findings and prioritize fixes to improve your score.</p>
                         </div>
                     </div>
-                {% endif %}
-            </div>
-        </div>
-    {% endif %}
 
-    <p><a href="/">Check another site</a></p>
-<script>
-    document.addEventListener('DOMContentLoaded', function(){
-        var btn = document.getElementById('toggle-raw');
-        if (btn){
-            btn.addEventListener('click', function(e){
-                e.preventDefault();
-                var block = document.getElementById('raw-html');
-                if (!block) return;
-                if (block.style.display === 'none'){
-                    block.style.display = 'block';
-                    btn.textContent = 'Hide raw HTML';
-                } else {
-                    block.style.display = 'none';
-                    btn.textContent = 'Show raw HTML';
-                }
-            });
-        }
-    });
-</script>
+                    <!-- Right column -->
+                    <div class="col">
+                        <!-- Connection & Playwright -->
+                        <div class="result-card">
+                            <div class="card-header"><h3>🌐 Connection & Rendering</h3></div>
+                            <p class="text-muted">Playwright available: <strong>{{ playwright.available if playwright is defined else 'Unknown' }}</strong></p>
+                            {% if playwright and playwright.info %}
+                                <div class="status-badge warning">{{ playwright.info }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Trackers Card (derived from findings) -->
+                        <div class="result-card">
+                            <div class="card-header"><h3>📊 Trackers</h3></div>
+                            {% set tracker_list = [] %}
+                            {% for f in findings %}
+                                {% set lowered = f | lower %}
+                                {% if 'google' in lowered or 'analytics' in lowered or 'gtag' in lowered or 'ga(' in lowered %}
+                                    {% if 'Google Analytics' not in tracker_list %}{% set tracker_list = tracker_list + ['Google Analytics'] %}{% endif %}
+                                {% elif 'facebook' in lowered or 'fbq' in lowered %}
+                                    {% if 'Facebook Pixel' not in tracker_list %}{% set tracker_list = tracker_list + ['Facebook Pixel'] %}{% endif %}
+                                {% elif 'adsbygoogle' in lowered or 'adsense' in lowered %}
+                                    {% if 'Google AdSense' not in tracker_list %}{% set tracker_list = tracker_list + ['Google AdSense'] %}{% endif %}
+                                {% elif 'doubleclick' in lowered %}
+                                    {% if 'DoubleClick' not in tracker_list %}{% set tracker_list = tracker_list + ['DoubleClick'] %}{% endif %}
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if tracker_list %}
+                                <div class="trackers-list">
+                                    {% for t in tracker_list %}
+                                        <div class="tracker-badge">{{ t }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-success">✅ No known trackers detected</p>
+                            {% endif %}
+                        </div>
+
+                        <!-- Privacy placeholder -->
+                        <div class="result-card">
+                            <div class="card-header"><h3>📋 Privacy & Legal</h3></div>
+                            <p class="text-muted">Privacy policy checks are not available in this quick view. Use deeper scan tools for policy detection.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align:center; margin-top:24px;">
+                <a class="btn-scan" href="/">Scan another site</a>
+            </div>
+
+        {% endif %}
+    </div>
+
+    <footer>
+        <p>Privacy & Security Scanner 2026 | Always verify results independently</p>
+    </footer>
+
+
 </body>
 </html>
