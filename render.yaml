@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: privacy-checker
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt && playwright install --with-deps"
+    startCommand: "gunicorn app:app"
