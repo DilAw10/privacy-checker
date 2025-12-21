@@ -74,6 +74,13 @@
                             {% if playwright and playwright.info %}
                                 <div class="status-badge warning">{{ playwright.info }}</div>
                             {% endif %}
+
+                            {% if screenshot %}
+                                <div style="margin-top:12px;">
+                                    <h4>Rendered screenshot</h4>
+                                    <img src="data:image/png;base64,{{ screenshot }}" alt="Rendered screenshot" style="max-width:100%; border-radius:12px; border:1px solid var(--border);"/>
+                                </div>
+                            {% endif %}
                         </div>
 
                         <!-- Trackers Card (derived from findings) -->
