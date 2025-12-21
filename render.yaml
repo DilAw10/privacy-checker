@@ -3,5 +3,5 @@ services:
     name: privacy-checker
     env: python
     plan: free
-    buildCommand: "pip install -r requirements.txt && playwright install --with-deps"
+    buildCommand: "python -m pip install -r requirements.txt && python -m playwright install --with-deps"
     startCommand: "gunicorn app:app"
